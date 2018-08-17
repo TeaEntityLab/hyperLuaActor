@@ -1,0 +1,27 @@
+[package]
+name = "hyper_lua_actor"
+version = "0.1.0"
+license = "MIT"
+authors = ["JunYi JohnTeee Lee <johnteee@gmail.com>"]
+include = ["src/**/*.rs", "Cargo.toml"]
+readme = "README.md"
+description = "Binding of lua_actor & hyper"
+documentation = "https://docs.rs/hyper_lua_actor/"
+homepage = "https://github.com/TeaEntityLab/hyperLuaActor"
+repository = "https://github.com/TeaEntityLab/hyperLuaActor"
+keywords = ["lua","actor","binding","async", "hyper"]
+
+[badges.maintenance]
+status = "actively-developed"
+
+[lib]
+name = "hyper_lua_actor"
+path = "src/lib.rs"
+
+[features]
+default = []
+
+[dependencies]
+fp_rust="*"
+rlua="*"
+lua_actor="*"
