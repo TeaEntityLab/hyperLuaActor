@@ -56,13 +56,16 @@ fn test_get_header() {
         None,
     );
 
+    let addr : SocketAddr = ([127, 0, 0, 1], 3000).into();
+
     let started_latch_for_thread = started_latch.clone();
     let hyper_latch_for_thread = hyper_latch.clone();
     let actor_for_thread = actor.clone();
+    let addr_for_thread = addr.clone();
     thread::spawn(move || {
         static TEXT: &str = "Hello, World!";
 
-        let addr = ([127, 0, 0, 1], 3000).into();
+        let addr = addr_for_thread;
 
         let started_latch = started_latch_for_thread.clone();
         let actor = actor_for_thread.clone();
@@ -93,7 +96,6 @@ fn test_get_header() {
 
     // hyper::rt::run(server.map_err(|e| eprintln!("server error: {}", e)));
 
-    let addr = ([127, 0, 0, 1], 3000).into();
     let mut req = connect(&addr);
     req.write_all(
         b"\
