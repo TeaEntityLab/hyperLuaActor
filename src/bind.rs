@@ -1,5 +1,8 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 use futures::{Async, Future, Poll};
 use hyper::header::{HeaderMap, HeaderName, HeaderValue};
@@ -7,17 +10,31 @@ use hyper::{Body, Error, Request, Response, Server};
 
 use lua_actor::actor::Actor;
 use lua_actor::message::LuaMessage;
+use rlua;
 
-pub fn bind_request(actor: &mut Actor, request: &Request<Body>) {
+pub fn call_hyper_request(
+    actor: &mut Actor,
+    request: &Request<Body>,
+) -> Result<LuaMessage, rlua::Error> {
+    actor.call("hyper_request", get_hyper_request_lua_message(request))
+}
+
+pub fn call_hyper_request_nowait(actor: &mut Actor, request: &Request<Body>) {
+    let _ = actor.call_nowait("hyper_request", get_hyper_request_lua_message(request));
+}
+
+#[inline]
+pub fn get_hyper_request_lua_message(request: &Request<Body>) -> LuaMessage {
     let mut hyper_request = HashMap::<String, LuaMessage>::default();
     hyper_request.insert(
         "headers".to_string(),
         LuaMessage::from(convert_headers(request)),
     );
 
-    let _ = actor.set_global("hyper_request", LuaMessage::from(hyper_request));
+    LuaMessage::from(hyper_request)
 }
 
+#[inline]
 pub fn convert_headers(request: &Request<Body>) -> HashMap<String, LuaMessage> {
     let mut headers = HashMap::<String, LuaMessage>::default();
     for item in request.headers().into_iter() {
@@ -43,13 +60,19 @@ pub fn convert_headers(request: &Request<Body>) -> HashMap<String, LuaMessage> {
     headers
 }
 
+#[derive(Debug, Clone)]
 pub struct HyperLatch {
-    is_alive: AtomicBool,
+    is_alive: Arc<Mutex<AtomicBool>>,
+}
+impl HyperLatch {
+    pub fn mark_done(&self) {
+        self.is_alive.lock().unwrap().store(false, Ordering::SeqCst);
+    }
 }
 impl Default for HyperLatch {
     fn default() -> Self {
         HyperLatch {
-            is_alive: AtomicBool::new(true),
+            is_alive: Arc::new(Mutex::new(AtomicBool::new(true))),
         }
     }
 }
@@ -58,7 +81,7 @@ impl Future for HyperLatch {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if self.is_alive.load(Ordering::SeqCst) {
+        if self.is_alive.lock().unwrap().load(Ordering::SeqCst) {
             Ok(Async::NotReady)
         } else {
             Ok(Async::Ready(()))
