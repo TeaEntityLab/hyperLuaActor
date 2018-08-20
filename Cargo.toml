@@ -19,10 +19,23 @@ name = "hyper_lua_actor"
 path = "src/lib.rs"
 
 [features]
-default = []
+default = [
+    "runtime",
+]
+runtime = [
+    "tokio",
+]
 
 [dependencies]
 fp_rust="0.*"
 rlua="0.*"
 lua_actor="0.*"
+
 hyper="0.*"
+futures="0.1.*"
+tokio = { version = "0.1.7", optional = true }
+
+[[test]]
+name = "bind"
+path = "tests/bind.rs"
+required-features = ["runtime"]
