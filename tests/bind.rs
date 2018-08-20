@@ -6,7 +6,10 @@ extern crate tokio;
 extern crate hyper_lua_actor;
 extern crate lua_actor;
 
+use std::io::{Read, Write};
+use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpStream};
 use std::thread;
+use std::time::Duration;
 
 use hyper::rt::Future;
 use hyper::service::service_fn_ok;
@@ -16,6 +19,13 @@ use tokio::runtime::current_thread::Runtime;
 use fp_rust::sync::CountDownLatch;
 use hyper_lua_actor::bind::*;
 use lua_actor::actor::Actor;
+
+fn connect(addr: &SocketAddr) -> TcpStream {
+    let req = TcpStream::connect(addr).unwrap();
+    req.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    req.set_write_timeout(Some(Duration::from_secs(1))).unwrap();
+    req
+}
 
 #[test]
 fn test_get_header() {
@@ -82,6 +92,19 @@ fn test_get_header() {
     });
 
     // hyper::rt::run(server.map_err(|e| eprintln!("server error: {}", e)));
+
+    let addr = ([127, 0, 0, 1], 3000).into();
+    let mut req = connect(&addr);
+    req.write_all(
+        b"\
+        GET / HTTP/1.1\r\n\
+        Host: example.domain\r\n\
+        Content-Length: 19\r\n\
+        \r\n\
+        I'm a good request.\r\n\
+    ",
+    ).unwrap();
+    req.read(&mut [0; 256]).unwrap();
 
     started_latch.wait();
 
