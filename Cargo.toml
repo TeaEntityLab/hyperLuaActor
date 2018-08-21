@@ -33,6 +33,7 @@ lua_actor="0.*"
 
 hyper="0.*"
 futures="0.1.*"
+url="1.*"
 tokio = { version = "0.1.7", optional = true }
 
 [[test]]

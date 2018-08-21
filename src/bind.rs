@@ -6,7 +6,8 @@ use std::sync::{
 
 use futures::{Async, Future, Poll};
 use hyper::header::{HeaderMap, HeaderName, HeaderValue};
-use hyper::{Body, Error, Request, Response, Server};
+use hyper::{Body, Error, Request, Response, Server, Uri};
+use url::{ParseError, Url};
 
 use lua_actor::actor::Actor;
 use lua_actor::message::LuaMessage;
@@ -30,13 +31,14 @@ pub fn get_hyper_request_lua_message(request: &Request<Body>) -> LuaMessage {
         "headers".to_string(),
         LuaMessage::from(convert_headers(request)),
     );
+    hyper_request.insert("url".to_string(), LuaMessage::from(convert_url(request)));
 
     LuaMessage::from(hyper_request)
 }
 
 #[inline]
-pub fn convert_headers(request: &Request<Body>) -> HashMap<String, LuaMessage> {
-    let mut headers = HashMap::<String, LuaMessage>::default();
+pub fn convert_headers(request: &Request<Body>) -> Vec<LuaMessage> {
+    let mut data = Vec::<LuaMessage>::default();
     for item in request.headers().into_iter() {
         let (k, v) = item;
 
@@ -44,7 +46,10 @@ pub fn convert_headers(request: &Request<Body>) -> HashMap<String, LuaMessage> {
 
         match str_result {
             Ok(_str) => {
-                headers.insert(k.as_str().to_string(), LuaMessage::from(_str));
+                data.push(LuaMessage::from(vec![
+                    LuaMessage::from(k.as_str()),
+                    LuaMessage::from(_str),
+                ]));
             }
             Err(_err) => {
                 let bytes = v
@@ -52,12 +57,41 @@ pub fn convert_headers(request: &Request<Body>) -> HashMap<String, LuaMessage> {
                     .into_iter()
                     .map(|i| LuaMessage::from(*i))
                     .collect::<Vec<_>>();
-                headers.insert(k.as_str().to_string(), LuaMessage::from(bytes));
+                data.push(LuaMessage::from(vec![
+                    LuaMessage::from(k.as_str()),
+                    LuaMessage::from(bytes),
+                ]));
             }
         }
     }
 
-    headers
+    data
+}
+
+#[inline]
+pub fn convert_url(request: &Request<Body>) -> HashMap<&'static str, LuaMessage> {
+    let mut data = HashMap::<&'static str, LuaMessage>::default();
+    match Url::parse("") {
+        Ok(parsed_url) => {
+            let query_params: Vec<_> = parsed_url.query_pairs().into_owned().collect();
+            data.insert(
+                "query_params",
+                LuaMessage::from(
+                    query_params
+                        .into_iter()
+                        .map(|item| {
+                            LuaMessage::from(vec![
+                                LuaMessage::from(item.0),
+                                LuaMessage::from(item.1),
+                            ])
+                        }).collect::<Vec<_>>(),
+                ),
+            );
+        }
+        Err(_err) => {}
+    }
+
+    data
 }
 
 #[derive(Debug, Clone)]
