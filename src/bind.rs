@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use std::pin::Pin;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
 };
+use std::task::{Context, Poll};
 
-use futures::{Async, Future, Poll};
-use hyper::{Body, Error, Request};
+use futures::Future;
+use hyper::{Body, Request};
 use url::Url;
 
 use lua_actor::actor::Actor;
@@ -112,14 +114,14 @@ impl Default for HyperLatch {
     }
 }
 impl Future for HyperLatch {
-    type Item = ();
-    type Error = Error;
+    type Output = ();
+    // type Error = Error;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self.is_alive.lock().unwrap().load(Ordering::SeqCst) {
-            Ok(Async::NotReady)
+            Poll::Pending
         } else {
-            Ok(Async::Ready(()))
+            Poll::Ready(())
         }
     }
 }

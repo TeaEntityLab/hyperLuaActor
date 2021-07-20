@@ -31,10 +31,10 @@ fp_rust="^0.1.40"
 rlua="0.17.0"
 lua_actor="0.2.0"
 
-hyper="0.*"
-futures="0.1.*"
-url="1.*"
-tokio = { version = "0.1.7", optional = true }
+hyper="^0.14.10"
+futures="^0.3.15"
+url="^2.2.2"
+tokio = { version = "^1.8.2", optional = true }
 
 [[test]]
 name = "bind"
