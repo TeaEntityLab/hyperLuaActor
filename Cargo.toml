@@ -27,9 +27,9 @@ runtime = [
 ]
 
 [dependencies]
-fp_rust="0.*"
-rlua="0.*"
-lua_actor="0.*"
+fp_rust="^0.1.40"
+rlua="0.17.0"
+lua_actor="0.2.0"
 
 hyper="0.*"
 futures="0.1.*"

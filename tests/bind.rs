@@ -7,7 +7,7 @@ extern crate hyper_lua_actor;
 extern crate lua_actor;
 
 use std::io::{Read, Write};
-use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 use std::thread;
 use std::time::Duration;
 
@@ -38,7 +38,6 @@ fn test_get_header() {
         r#"
             i = 0
         "#,
-        None,
     );
     let _ = actor.exec_nowait(
         r#"
@@ -53,10 +52,9 @@ fn test_get_header() {
                 i = tablelength(req)
             end
         "#,
-        None,
     );
 
-    let addr : SocketAddr = ([127, 0, 0, 1], 3000).into();
+    let addr: SocketAddr = ([127, 0, 0, 1], 3000).into();
 
     let started_latch_for_thread = started_latch.clone();
     let hyper_latch_for_thread = hyper_latch.clone();
@@ -82,10 +80,10 @@ fn test_get_header() {
             })
         };
 
-        let started_latch = started_latch_for_thread.clone();
+        let _started_latch = started_latch_for_thread.clone();
         let server = Server::bind(&addr).serve(new_svc);
         let fut = server.select(hyper_latch_for_thread).then(move |_| {
-            // started_latch.countdown();
+            // _started_latch.countdown();
 
             Ok::<(), ()>(())
         });
@@ -105,7 +103,8 @@ fn test_get_header() {
         \r\n\
         I'm a good request.\r\n\
     ",
-    ).unwrap();
+    )
+    .unwrap();
     req.read(&mut [0; 256]).unwrap();
 
     started_latch.wait();

@@ -5,9 +5,8 @@ use std::sync::{
 };
 
 use futures::{Async, Future, Poll};
-use hyper::header::{HeaderMap, HeaderName, HeaderValue};
-use hyper::{Body, Error, Request, Response, Server, Uri};
-use url::{ParseError, Url};
+use hyper::{Body, Error, Request};
+use url::Url;
 
 use lua_actor::actor::Actor;
 use lua_actor::message::LuaMessage;
@@ -69,13 +68,14 @@ pub fn convert_headers(request: &Request<Body>) -> Vec<LuaMessage> {
 }
 
 #[inline]
-pub fn convert_url(request: &Request<Body>) -> HashMap<&'static str, LuaMessage> {
-    let mut data = HashMap::<&'static str, LuaMessage>::default();
-    match Url::parse("") {
+pub fn convert_url(request: &Request<Body>) -> HashMap<String, LuaMessage> {
+    let mut data = HashMap::<String, LuaMessage>::default();
+
+    match Url::parse(request.uri().to_string().as_str()) {
         Ok(parsed_url) => {
             let query_params: Vec<_> = parsed_url.query_pairs().into_owned().collect();
             data.insert(
-                "query_params",
+                String::from("query_params"),
                 LuaMessage::from(
                     query_params
                         .into_iter()
@@ -84,7 +84,8 @@ pub fn convert_url(request: &Request<Body>) -> HashMap<&'static str, LuaMessage>
                                 LuaMessage::from(item.0),
                                 LuaMessage::from(item.1),
                             ])
-                        }).collect::<Vec<_>>(),
+                        })
+                        .collect::<Vec<_>>(),
                 ),
             );
         }
