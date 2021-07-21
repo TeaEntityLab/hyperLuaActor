@@ -3,6 +3,7 @@ name = "hyper_lua_actor"
 version = "0.1.1"
 license = "MIT"
 authors = ["JunYi JohnTeee Lee <johnteee@gmail.com>"]
+edition = "2018"
 include = ["src/**/*.rs", "Cargo.toml"]
 readme = "README.md"
 description = "Binding of lua_actor & hyper"
@@ -31,10 +32,11 @@ fp_rust="^0.1.40"
 rlua="0.17.0"
 lua_actor="0.2.0"
 
-hyper="^0.14.10"
+hyper = { version = "^0.14.10", features = ["full"] }
 futures="^0.3.15"
 url="^2.2.2"
-tokio = { version = "^1.8.2", optional = true }
+tokio = { version = "^1.8.2", features = ["full"], optional = true }
+pretty_env_logger = "^0.4"
 
 [[test]]
 name = "bind"

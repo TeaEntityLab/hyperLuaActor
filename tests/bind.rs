@@ -1,37 +1,36 @@
 extern crate fp_rust;
 extern crate futures;
 extern crate hyper;
-extern crate tokio;
 
 extern crate hyper_lua_actor;
 extern crate lua_actor;
 
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::thread;
 use std::time::Duration;
 
-use hyper::rt::Future;
-use hyper::service::service_fn_ok;
-use hyper::{Body, Response, Server};
-use tokio::runtime::current_thread::Runtime;
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Request, Response, Server};
 
 use fp_rust::sync::CountDownLatch;
 use hyper_lua_actor::bind::*;
 use lua_actor::actor::Actor;
 
-fn connect(addr: &SocketAddr) -> TcpStream {
-    let req = TcpStream::connect(addr).unwrap();
+fn connect(addr: &SocketAddr) -> std::io::Result<TcpStream> {
+    let req = TcpStream::connect(addr)?;
     req.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
     req.set_write_timeout(Some(Duration::from_secs(1))).unwrap();
-    req
+    Ok(req)
 }
 
-#[test]
-fn test_get_header() {
+#[tokio::test]
+async fn test_get_header() {
+    use tokio::time::{sleep, Duration};
+
     // let actor = Actor::new_with_handler(None);
     let actor = Actor::new();
     let started_latch = CountDownLatch::new(1);
+    // let hyper_latch = CountDownLatch::new(1);
     let hyper_latch = HyperLatch::default();
 
     let _ = actor.exec_nowait(
@@ -59,42 +58,42 @@ fn test_get_header() {
     let started_latch_for_thread = started_latch.clone();
     let hyper_latch_for_thread = hyper_latch.clone();
     let actor_for_thread = actor.clone();
-    let addr_for_thread = addr.clone();
-    thread::spawn(move || {
-        static TEXT: &str = "Hello, World!";
 
-        let addr = addr_for_thread;
+    static TEXT: &str = "Hello, World!";
 
-        let started_latch = started_latch_for_thread.clone();
-        let actor = actor_for_thread.clone();
-        let new_svc = move || {
-            let started_latch = started_latch.clone();
-            let actor = actor.clone();
-            service_fn_ok(move |_req| {
-                let mut actor = actor.clone();
-                call_hyper_request_nowait(&mut actor, &_req);
+    let actor_for_thread_2 = actor_for_thread.clone();
+    let server = Server::bind(&addr).serve(make_service_fn(move |_| {
+        let actor_for_thread_3 = actor_for_thread_2.clone();
+        let started_latch_for_thread_2 = started_latch_for_thread.clone();
+        async {
+            Ok::<_, hyper::Error>(service_fn(move |req: Request<Body>| {
+                let actor_for_thread_4 = actor_for_thread_3.clone();
+                let started_latch_for_thread_3 = started_latch_for_thread_2.clone();
 
-                started_latch.countdown();
+                println!("StartedB");
+                let mut actor = actor_for_thread_4.clone();
+                call_hyper_request_nowait(&mut actor, &req);
 
-                Response::new(Body::from(TEXT))
-            })
-        };
+                println!("Started");
 
-        let _started_latch = started_latch_for_thread.clone();
-        let server = Server::bind(&addr).serve(new_svc);
-        let fut = server.select(hyper_latch_for_thread).then(move |_| {
-            // _started_latch.countdown();
+                started_latch_for_thread_3.countdown();
 
-            Ok::<(), ()>(())
-        });
+                async { Ok::<Response<Body>, hyper::Error>(Response::new(Body::from(TEXT))) }
+            }))
+        }
+    }));
 
-        let mut rt = Runtime::new().expect("rt new");
-        rt.block_on(fut).unwrap();
+    println!("Started C");
+
+    tokio::spawn(async {
+        // hyper_latch_for_thread.countdown();
+        hyper_latch_for_thread.await;
+        server.with_graceful_shutdown(async move {}).await;
     });
 
-    // hyper::rt::run(server.map_err(|e| eprintln!("server error: {}", e)));
+    sleep(Duration::from_millis(20000)).await;
 
-    let mut req = connect(&addr);
+    let mut req = connect(&addr).unwrap();
     req.write_all(
         b"\
         GET / HTTP/1.1\r\n\
@@ -108,9 +107,12 @@ fn test_get_header() {
     req.read(&mut [0; 256]).unwrap();
 
     started_latch.wait();
+    println!("REQ",);
 
     assert_ne!(Some(0), Option::from(actor.get_global("i").ok().unwrap()));
+
     hyper_latch.mark_done();
+    // hyper_latch.countdown();
 
     println!("OK");
 }
