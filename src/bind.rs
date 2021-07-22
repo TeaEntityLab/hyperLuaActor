@@ -7,6 +7,7 @@ use std::sync::{
 use std::task::{Context, Poll};
 
 use futures::Future;
+use hyper::body;
 use hyper::{Body, Request};
 use url::Url;
 
@@ -16,13 +17,37 @@ use rlua;
 
 pub fn call_hyper_request(
     actor: &mut Actor,
-    request: &Request<Body>,
+    request: &mut Request<Body>,
+    // skip_parse_boody_as_string: bool,
 ) -> Result<LuaMessage, rlua::Error> {
+    // setup_hyper_get_request_body(actor, request, skip_parse_boody_as_string);
     actor.call("hyper_request", get_hyper_request_lua_message(request))
 }
 
-pub fn call_hyper_request_nowait(actor: &mut Actor, request: &Request<Body>) {
+pub fn call_hyper_request_nowait(
+    actor: &Actor,
+    request: &mut Request<Body>,
+    // skip_parse_boody_as_string: bool,
+) {
+    // setup_hyper_get_request_body(actor, request, skip_parse_boody_as_string);
     let _ = actor.call_nowait("hyper_request", get_hyper_request_lua_message(request));
+}
+
+#[inline]
+pub async fn setup_hyper_get_request_body(actor: &Actor, request: &mut Request<Body>) {
+    let lua_arc = actor.lua();
+    let lua = lua_arc.lock().unwrap();
+
+    let body_raw = request.body_mut();
+    let bytes = body::to_bytes(body_raw).await;
+    let body_str = String::from_utf8(bytes.ok().unwrap().to_vec()).ok();
+    lua.context(|lua| {
+        let _ = actor.def_fn_with_name_sync(
+            lua,
+            move |_, _input: String| Ok(body_str.clone()),
+            "hyper_get_request_body",
+        );
+    });
 }
 
 #[inline]
@@ -32,7 +57,26 @@ pub fn get_hyper_request_lua_message(request: &Request<Body>) -> LuaMessage {
         "headers".to_string(),
         LuaMessage::from(convert_headers(request)),
     );
-    hyper_request.insert("url".to_string(), LuaMessage::from(convert_url(request)));
+    hyper_request.insert(
+        "url_meta".to_string(),
+        LuaMessage::from(convert_url(request)),
+    );
+    hyper_request.insert(
+        "method".to_string(),
+        LuaMessage::from(request.method().to_string()),
+    );
+    hyper_request.insert(
+        "version".to_string(),
+        LuaMessage::from(format!("{:?}", request.version())),
+    );
+    hyper_request.insert(
+        "uri".to_string(),
+        LuaMessage::from(request.uri().to_string()),
+    );
+    hyper_request.insert(
+        "extensions".to_string(),
+        LuaMessage::from(format!("{:?}", request.extensions())),
+    );
 
     LuaMessage::from(hyper_request)
 }
@@ -73,11 +117,14 @@ pub fn convert_headers(request: &Request<Body>) -> Vec<LuaMessage> {
 pub fn convert_url(request: &Request<Body>) -> HashMap<String, LuaMessage> {
     let mut data = HashMap::<String, LuaMessage>::default();
 
-    match Url::parse(request.uri().to_string().as_str()) {
+    let url = request.uri().to_string();
+    data.insert("url_raw".to_string(), url.clone().into());
+
+    match Url::parse(url.as_str()) {
         Ok(parsed_url) => {
             let query_params: Vec<_> = parsed_url.query_pairs().into_owned().collect();
             data.insert(
-                String::from("query_params"),
+                "query_params".to_string(),
                 LuaMessage::from(
                     query_params
                         .into_iter()

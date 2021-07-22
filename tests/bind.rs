@@ -8,7 +8,7 @@ extern crate lua_actor;
 use std::net::SocketAddr;
 
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Client, Request, Response, Server};
+use hyper::{Body, Client, Method, Request, Response, Server};
 
 use fp_rust::sync::CountDownLatch;
 use hyper_lua_actor::bind::*;
@@ -35,7 +35,9 @@ async fn test_get_header() {
 
     let _ = actor.exec_nowait(
         r#"
-            i = 0
+            request_params_len = 0
+            headers_len = 0
+            uri = ''
         "#,
     );
     let _ = actor.exec_nowait(
@@ -46,9 +48,10 @@ async fn test_get_header() {
                 return count
             end
             function hyper_request (req)
-                i = 0
-                -- i = table.getn(req)
-                i = tablelength(req)
+                -- request_params_len = table.getn(req)
+                request_params_len = tablelength(req)
+                headers_len = tablelength(req['headers'])
+                uri = req['uri']
             end
         "#,
     );
@@ -66,19 +69,22 @@ async fn test_get_header() {
         let actor_for_thread_3 = actor_for_thread_2.clone();
         let started_latch_for_thread_2 = started_latch_for_thread.clone();
         async {
-            Ok::<_, hyper::Error>(service_fn(move |req: Request<Body>| {
+            Ok::<_, hyper::Error>(service_fn(move |mut req: Request<Body>| {
                 let actor_for_thread_4 = actor_for_thread_3.clone();
                 let started_latch_for_thread_3 = started_latch_for_thread_2.clone();
 
                 println!("StartedB");
                 let mut actor = actor_for_thread_4.clone();
-                call_hyper_request_nowait(&mut actor, &req);
+                // setup_hyper_get_request_body(&mut actor, &mut req);
+                call_hyper_request_nowait(&mut actor, &mut req);
 
                 println!("Started");
 
                 started_latch_for_thread_3.countdown();
 
-                async { Ok::<Response<Body>, hyper::Error>(Response::new(Body::from(TEXT))) }
+                let response = Response::new(Body::from(TEXT));
+
+                async { Ok::<Response<Body>, hyper::Error>(response) }
             }))
         }
     }));
@@ -112,9 +118,16 @@ async fn test_get_header() {
     */
 
     let client = Client::new();
-    let resp = client
-        .get(("http://".to_string() + &addr.to_string()).parse().unwrap())
-        .await;
+    let request = Request::builder()
+        .method(Method::POST)
+        .uri("http://".to_string() + &addr.to_string())
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"library":"hyper"}"#))
+        .ok()
+        .unwrap();
+
+    println!("{:?}", request);
+    let resp = client.request(request).await;
     let resp_ref = resp.as_ref();
     let err = resp_ref.err();
     println!("{:?}", err);
@@ -123,9 +136,17 @@ async fn test_get_header() {
     started_latch.wait();
     println!("REQ",);
 
-    let i_val = Option::from(actor.get_global("i").ok().unwrap());
-    println!("i={:?}", i_val);
-    assert_ne!(Some(0), i_val);
+    let request_params_len =
+        Option::<i64>::from(actor.get_global("request_params_len").ok().unwrap());
+    let headers_len = Option::<i64>::from(actor.get_global("headers_len").ok().unwrap());
+    let uri = actor.get_global("uri").ok().unwrap();
+    println!(
+        "request_params_len={:?}, headers_len={:?}, uri={:?}",
+        request_params_len, headers_len, uri,
+    );
+    assert_ne!(Some(0), request_params_len);
+    assert_ne!(Some(0), headers_len);
+    assert_ne!(Some("".to_string()), Option::<String>::from(uri));
 
     hyper_latch.mark_done();
     // hyper_latch.countdown();
