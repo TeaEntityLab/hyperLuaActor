@@ -5,23 +5,23 @@ extern crate hyper;
 extern crate hyper_lua_actor;
 extern crate lua_actor;
 
-use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpStream};
-use std::time::Duration;
+use std::net::SocketAddr;
 
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Request, Response, Server};
+use hyper::{Body, Client, Request, Response, Server};
 
 use fp_rust::sync::CountDownLatch;
 use hyper_lua_actor::bind::*;
 use lua_actor::actor::Actor;
 
+/*
 fn connect(addr: &SocketAddr) -> std::io::Result<TcpStream> {
     let req = TcpStream::connect(addr)?;
     req.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
     req.set_write_timeout(Some(Duration::from_secs(1))).unwrap();
     Ok(req)
 }
+*/
 
 #[tokio::test]
 async fn test_get_header() {
@@ -87,12 +87,16 @@ async fn test_get_header() {
 
     tokio::spawn(async {
         // hyper_latch_for_thread.countdown();
-        hyper_latch_for_thread.await;
-        server.with_graceful_shutdown(async move {}).await;
+        let _ = server
+            .with_graceful_shutdown(async move {
+                hyper_latch_for_thread.await;
+            })
+            .await;
     });
 
-    sleep(Duration::from_millis(20000)).await;
+    sleep(Duration::from_millis(200)).await;
 
+    /*
     let mut req = connect(&addr).unwrap();
     req.write_all(
         b"\
@@ -105,11 +109,23 @@ async fn test_get_header() {
     )
     .unwrap();
     req.read(&mut [0; 256]).unwrap();
+    */
+
+    let client = Client::new();
+    let resp = client
+        .get(("http://".to_string() + &addr.to_string()).parse().unwrap())
+        .await;
+    let resp_ref = resp.as_ref();
+    let err = resp_ref.err();
+    println!("{:?}", err);
+    assert_eq!(false, resp_ref.is_err());
 
     started_latch.wait();
     println!("REQ",);
 
-    assert_ne!(Some(0), Option::from(actor.get_global("i").ok().unwrap()));
+    let i_val = Option::from(actor.get_global("i").ok().unwrap());
+    println!("i={:?}", i_val);
+    assert_ne!(Some(0), i_val);
 
     hyper_latch.mark_done();
     // hyper_latch.countdown();
