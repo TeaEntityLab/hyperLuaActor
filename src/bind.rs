@@ -7,6 +7,7 @@ use std::sync::{
 use std::task::{Context, Poll};
 
 use futures::Future;
+// use futures::TryStreamExt;
 use hyper::body;
 use hyper::{Body, Request};
 use url::Url;
@@ -15,6 +16,7 @@ use lua_actor::actor::Actor;
 use lua_actor::message::LuaMessage;
 use rlua;
 
+#[inline]
 pub fn call_hyper_request(
     actor: &mut Actor,
     request: &mut Request<Body>,
@@ -24,6 +26,7 @@ pub fn call_hyper_request(
     actor.call("hyper_request", get_hyper_request_lua_message(request))
 }
 
+#[inline]
 pub fn call_hyper_request_nowait(
     actor: &Actor,
     request: &mut Request<Body>,
@@ -34,20 +37,49 @@ pub fn call_hyper_request_nowait(
 }
 
 #[inline]
-pub async fn setup_hyper_get_request_body(actor: &Actor, request: &mut Request<Body>) {
+pub async fn setup_hyper_get_request_body(
+    actor: &Actor,
+    request: &mut Request<Body>,
+    use_raw_data: bool,
+) {
     let lua_arc = actor.lua();
     let lua = lua_arc.lock().unwrap();
 
     let body_raw = request.body_mut();
     let bytes = body::to_bytes(body_raw).await;
-    let body_str = String::from_utf8(bytes.ok().unwrap().to_vec()).ok();
-    lua.context(|lua| {
-        let _ = actor.def_fn_with_name_sync(
-            lua,
-            move |_, _input: String| Ok(body_str.clone()),
-            "hyper_get_request_body",
-        );
-    });
+    // Raw content
+    /*
+    let bytes = body_raw
+        .try_fold(Vec::new(), |mut data, chunk| async move {
+            data.extend_from_slice(&chunk);
+            Ok(data)
+        })
+        .await;
+    */
+    let bytes_vec = bytes.ok().unwrap().to_vec();
+
+    if use_raw_data {
+        lua.context(move |lua| {
+            let _ = actor.def_fn_with_name_sync(
+                lua,
+                // NOTE: rlua::Value Could be rlua::Value::Nil -> for empty parameter
+                move |_, _input: rlua::Value| Ok(bytes_vec.clone()),
+                "hyper_get_request_body",
+            );
+        });
+    } else {
+        let body_str: String;
+        // unsafe { body_str = String::from_utf8_unchecked(bytes_vec.clone()) };
+        body_str = String::from_utf8(bytes_vec).ok().unwrap();
+        lua.context(move |lua| {
+            let _ = actor.def_fn_with_name_sync(
+                lua,
+                // NOTE: rlua::Value Could be rlua::Value::Nil -> for empty parameter
+                move |_, _input: rlua::Value| Ok(body_str.clone()),
+                "hyper_get_request_body",
+            );
+        });
+    }
 }
 
 #[inline]
