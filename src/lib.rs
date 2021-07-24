@@ -6,4 +6,4 @@ extern crate fp_rust;
 extern crate lua_actor;
 extern crate rlua;
 
-pub mod bind;
+pub mod rlua_bind;

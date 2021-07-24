@@ -21,16 +21,19 @@ path = "src/lib.rs"
 
 [features]
 default = [
-    "runtime",
+    "for_rlua"
 ]
 runtime = [
     "tokio",
 ]
+for_rlua = [
+    "rlua", "lua_actor",
+]
 
 [dependencies]
 fp_rust="^0.1.40"
-rlua="0.17.0"
-lua_actor="0.2.0"
+rlua={ version = "^0.17.0", features = ["default"], optional = true }
+lua_actor={ version = "^0.2.0", features = ["default"], optional = true }
 
 hyper = { version = "^0.14.10", features = ["full"] }
 futures="^0.3.15"

@@ -12,7 +12,7 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Client, Method, Request, Response, Server};
 
 use fp_rust::sync::CountDownLatch;
-use hyper_lua_actor::bind::*;
+use hyper_lua_actor::rlua_bind::*;
 // use hyper_lua_actor::blocking_future;
 use lua_actor::actor::Actor;
 
