@@ -1,6 +1,6 @@
 [package]
 name = "hyper_lua_actor"
-version = "0.2.2"
+version = "0.3.0"
 license = "MIT"
 authors = ["JunYi JohnTeee Lee <johnteee@gmail.com>"]
 edition = "2018"
@@ -21,19 +21,27 @@ path = "src/lib.rs"
 
 [features]
 default = [
-    "for_rlua"
+    "lua54"
 ]
 runtime = [
-    "tokio",
+    "tokio"
 ]
 for_rlua = [
     "rlua", "lua_actor",
 ]
+lua54 = [ "mlua/lua54", "mlua_actor/lua54" ]
+lua53 = [ "mlua/lua53", "mlua_actor/lua53" ]
+lua52 = [ "mlua/lua52", "mlua_actor/lua52" ]
+lua51 = [ "mlua/lua51", "mlua_actor/lua51" ]
+luajit = [ "mlua/luajit", "mlua_actor/luajit" ]
+vendored = [ "mlua/vendored" ]
 
 [dependencies]
 fp_rust="^0.1.40"
 rlua={ version = "^0.17.0", features = ["default"], optional = true }
 lua_actor={ version = "^0.2.0", features = ["default"], optional = true }
+mlua = { version = "^0.6.2", features = [ "send" ], optional = true }
+mlua_actor={ version = "^0.1.0", features = ["default"], optional = true }
 
 hyper = { version = "^0.14.10", features = ["full"] }
 futures="^0.3.15"
@@ -44,4 +52,9 @@ pretty_env_logger = "^0.4"
 [[test]]
 name = "rlua_bind"
 path = "tests/rlua_bind.rs"
-required-features = ["runtime", "for_rlua"]
+required-features = ["for_rlua", "runtime"]
+
+[[test]]
+name = "mlua_bind"
+path = "tests/mlua_bind.rs"
+required-features = ["lua54", "runtime"]

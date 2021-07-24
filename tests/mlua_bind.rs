@@ -13,10 +13,10 @@ fn connect(addr: &SocketAddr) -> std::io::Result<TcpStream> {
 }
 */
 
-#[cfg(feature = "for_rlua")]
+#[cfg(not(feature = "for_rlua"))]
 #[tokio::test]
 async fn test_get_header() {
-    extern crate lua_actor;
+    extern crate mlua_actor;
 
     use std::net::SocketAddr;
 
@@ -26,8 +26,9 @@ async fn test_get_header() {
     use tokio::time::{sleep, Duration};
 
     use fp_rust::sync::CountDownLatch;
-    use hyper_lua_actor::rlua_bind::*;
-    use lua_actor::actor::Actor;
+    // use hyper_lua_actor::blocking_future;
+    use hyper_lua_actor::mlua_bind::*;
+    use mlua_actor::actor::Actor;
 
     // let actor = Actor::new_with_handler(None);
     let actor = Actor::new();
