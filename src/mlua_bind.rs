@@ -23,7 +23,10 @@ pub fn call_hyper_request(
     // skip_parse_boody_as_string: bool,
 ) -> Result<LuaMessage, mlua::Error> {
     // setup_hyper_get_request_body(actor, request, skip_parse_boody_as_string);
-    actor.call("hyper_request", get_hyper_request_lua_message(request))
+    actor.call(
+        "hyper_request",
+        get_hyper_request_lua_message(request).into(),
+    )
 }
 
 #[inline]
@@ -33,7 +36,10 @@ pub fn call_hyper_request_nowait(
     // skip_parse_boody_as_string: bool,
 ) {
     // setup_hyper_get_request_body(actor, request, skip_parse_boody_as_string);
-    let _ = actor.call_nowait("hyper_request", get_hyper_request_lua_message(request));
+    let _ = actor.call_nowait(
+        "hyper_request",
+        get_hyper_request_lua_message(request).into(),
+    );
 }
 
 #[inline]

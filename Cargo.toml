@@ -1,6 +1,6 @@
 [package]
 name = "hyper_lua_actor"
-version = "0.3.0"
+version = "0.3.1"
 license = "MIT"
 authors = ["JunYi JohnTeee Lee <johnteee@gmail.com>"]
 edition = "2018"
@@ -39,9 +39,9 @@ vendored = [ "mlua/vendored" ]
 [dependencies]
 fp_rust="^0.1.40"
 rlua={ version = "^0.17.0", features = ["default"], optional = true }
-lua_actor={ version = "^0.2.0", features = ["default"], optional = true }
+lua_actor={ version = "^0.2.2", features = ["default"], optional = true }
 mlua = { version = "^0.6.2", features = [ "send" ], optional = true }
-mlua_actor={ version = "^0.1.0", features = ["default"], optional = true }
+mlua_actor={ version = "^0.1.1", features = ["default"], optional = true }
 
 hyper = { version = "^0.14.10", features = ["full"] }
 futures="^0.3.15"
